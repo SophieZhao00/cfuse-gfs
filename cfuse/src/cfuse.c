@@ -8,144 +8,169 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gd_interface.h"
+
 #define PATH_MAX 256
 #define CMD_MAX 256
 
 // Command line options
 static struct options {
-  const char* hostname;
-  const char* cache;
+    const char* hostname;
+    const char* cache;
 } options;
 
-#define OPTION(t, p)                           \
-    { t, offsetof(struct options, p), 1 }
-static const struct fuse_opt option_spec[] = {
-  OPTION("--host=%s", hostname),
-  OPTION("--cache=%s", cache),
-  FUSE_OPT_END
-};
+// #define OPTION(t, p)                           \
+//     { t, offsetof(struct options, p), 1 }
+// static const struct fuse_opt option_spec[] = {
+//     OPTION("--host=%s", hostname),
+//     OPTION("--cache=%s", cache),
+//     FUSE_OPT_END
+// };
 
 // scp files from host to cache
-void scp_read(const char* path) {
-  // TODO: does not support sub directoreis
-  char cmd[CMD_MAX] = "scp -r ";
-  strncat(cmd, options.hostname, CMD_MAX);
-  strncat(cmd, path, CMD_MAX);
-  strcat(cmd, " ");
-  strncat(cmd, options.cache, CMD_MAX);
+// void scp_read(const char* path) {
+//     // TODO: does not support sub directoreis
+//     char cmd[CMD_MAX] = "scp -r ";
+//     strncat(cmd, options.hostname, CMD_MAX);
+//     strncat(cmd, path, CMD_MAX);
+//     strcat(cmd, " ");
+//     strncat(cmd, options.cache, CMD_MAX);
 
-  system(cmd);
-}
+//     system(cmd);
+// }
 
 // scp files from cache to host
-void scp_write(const char* path) {
-  // TODO: does not support sub directoreis
-  char cmd[CMD_MAX] = "scp -r ";
-  strncat(cmd, options.cache, CMD_MAX);
-  strncat(cmd, path, CMD_MAX);
-  strcat(cmd, " ");
-  strncat(cmd, options.hostname, CMD_MAX);
+// void scp_write(const char* path) {
+//     // TODO: does not support sub directoreis
+//     char cmd[CMD_MAX] = "scp -r ";
+//     strncat(cmd, options.cache, CMD_MAX);
+//     strncat(cmd, path, CMD_MAX);
+//     strcat(cmd, " ");
+//     strncat(cmd, options.hostname, CMD_MAX);
 
-  system(cmd);
+//     system(cmd);
+// }
+
+int is_valid(const char* path) {
+    // Check if the path is valid
+    return 1;
 }
 
 // convert path to real path on local file system
-static void snfs_realpath(char fpath[PATH_MAX], const char *path)
+static void cgfs_realpath(char fpath[PATH_MAX], const char *path)
 {
-  strcpy(fpath, options.cache);
-  strncat(fpath, path, PATH_MAX);
+    // strcpy(fpath, options.cache);
+    strncat(fpath, path, PATH_MAX);
 }
 
-static int snfs_getattr(const char *path, struct stat *stbuf,
+static int cgfs_getattr(const char *path, struct stat *stbuf,
        struct fuse_file_info *fi)
 {
-  // get the real path on the local machine
-  char fpath[PATH_MAX];
-  snfs_realpath(fpath, path);
+    // get the real path on the local machine
+    // char fpath[PATH_MAX];
+    // cgfs_realpath(fpath, path);
 
-  // read files
-  if (strcmp(path, "/") == 0) {
-    scp_read("/*");
-  } else {
-    scp_read(path);
-  }
+    // // read files
+    // if (strcmp(path, "/") == 0) {
+    //     scp_read("/*");
+    // } else {
+    //     scp_read(path);
+    // }
 
-  memset(stbuf, 0, sizeof(struct stat));
-  return lstat(fpath, stbuf);
+    // memset(stbuf, 0, sizeof(struct stat));
+    // return lstat(fpath, stbuf);
+    memset(stbuf, 0, sizeof(stbuf));
+
+    if (strcmp(path, "/") == 0) {
+        stbuf->st_mode = S_IFDIR | 0755;
+        stbuf->st_nlink = 2;
+        return 0;
+    } 
+    if (is_valid(path)) {
+        stbuf->st_mode = S_IFREG | 0777;
+        stbuf->st_nlink = 1;
+        // TODO: get file's megadata and there's a field called size.
+        // stbuf->st_size = get_size(path);
+        return 0;
+    }
+    return -ENOENT;
 }
 
-static int snfs_open(const char *path, struct fuse_file_info *fi)
+static int cgfs_open(const char *path, struct fuse_file_info *fi)
 {
-  // get the real path on the local machine
-  char fpath[PATH_MAX];
-  snfs_realpath(fpath, path);
+    // get the real path on the local machine
+    char fpath[PATH_MAX];
+    cgfs_realpath(fpath, path);
+    // TODO: Download the file from Google drive to real path
 
-  int fd = open(fpath, fi->flags);
-  fi->fh = fd;
-  if (fd < 0)
-    return -errno;
-  else
-    return 0;
+    int fd = open(fpath, fi->flags);
+    fi->fh = fd;
+    if (fd < 0)
+        return -errno;
+    else
+        return 0;
 }
 
-static int snfs_read(const char *path, char *buf, size_t size, off_t offset,
+static int cgfs_read(const char *path, char *buf, size_t size, off_t offset,
           struct fuse_file_info *fi)
 {
-  return pread(fi->fh, buf, size, offset);
+    return pread(fi->fh, buf, size, offset);  
 }
 
-static int snfs_write(const char *path, const char *buf, size_t size, off_t offset,
+static int cgfs_write(const char *path, const char *buf, size_t size, off_t offset,
        struct fuse_file_info *fi)
 {
-  int res = pwrite(fi->fh, buf, size, offset);
-  scp_write(path);
-  return res;
+    int res = pwrite(fi->fh, buf, size, offset);
+    // scp_write(path);
+    return res;
 }
 
-static int snfs_fsync(const char* path, int isdatasync, struct fuse_file_info* fi)
+static int cgfs_fsync(const char* path, int isdatasync, struct fuse_file_info* fi)
 {
-  int res;
-  if (isdatasync) {
-    res = fdatasync(fi->fh);
-  } else {
-    res = fsync(fi->fh);
-  }
-  scp_write(path);
-  return res;
+    int res;
+    if (isdatasync) {
+        res = fdatasync(fi->fh);
+    } else {
+        res = fsync(fi->fh);
+    }
+    // scp_write(path);
+    // TODO: Update the file back to the Google Drive
+    return res;
 }
 
-static int snfs_release(const char* path, struct fuse_file_info *fi)
+static int cgfs_release(const char* path, struct fuse_file_info *fi)
 {
-  return close(fi->fh);
+    // TODO: Update the file back to the Google Drive (Is this needed??)
+    return close(fi->fh);
 }
 
-static const struct fuse_operations snfs_oper = {
-  .getattr	= snfs_getattr,
-  .open		= snfs_open,
-  .read		= snfs_read,
-  .write = snfs_write,
-  .fsync = snfs_fsync,
-  .release = snfs_release,
+static const struct fuse_operations cgfs_oper = {
+    .getattr	= cgfs_getattr,
+    .open		= cgfs_open,
+    .read		= cgfs_read,
+    .write = cgfs_write,
+    .fsync = cgfs_fsync,
+    .release = cgfs_release,
 };
 
 int main(int argc, char *argv[]) {
-  int ret;
+    int ret;
 
-  struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-  // Set defaults
-  options.hostname = strdup("xuefeiz@auriga.cs.utexas.edu:/tmp/xuefeiz/root");
-  options.cache = strdup("/tmp/xuefeiz");
+    // Set defaults
+    // options.hostname = strdup("xuefeiz@auriga.cs.utexas.edu:/tmp/xuefeiz/root");
+    // options.cache = strdup("/tmp/xuefeiz");
 
-  // Parse options
-  if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1) {
-    fprintf(stderr, "fail to parse options\n");
-    return 1;
-  }
+    // Parse options
+    // if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1) {
+    //     fprintf(stderr, "fail to parse options\n");
+    //     return 1;
+    // }
 
-  ret = fuse_main(argc, argv, &snfs_oper, NULL);
+    ret = fuse_main(argc, argv, &cgfs_oper, NULL);
 
-  fuse_opt_free_args(&args);
+    // fuse_opt_free_args(&args);
 
-  return ret;
+    return ret;
 }
