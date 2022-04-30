@@ -1,5 +1,7 @@
-#include <curl/curl.h>
 #include "gd_interface.h"
+
+#include <curl/curl.h>
+#include "map.h"
 
 static char access_token[200];
 static char api_key[50];
@@ -48,7 +50,57 @@ static int read_config(char* path) {
     return EXIT_SUCCESS;
 }
 
+static size_t file_list_writefunc(void *data_in, size_t size, size_t nmemb, void *data_out) {
+    char * data = (char *) data_in;
+    char * files = strstr(data, "\"files\": [");
+    files += strlen("\"files\": [\n");
+    char *name, *id;
+    id = strstr(files, "\"id\": ");
+    while (id != NULL) {
+        name = strstr(files, "\"name\": ");
+        if (name == NULL) {
+            fprintf(stderr, "Id exists but name doesn't\n");
+            return EXIT_FAILURE;
+        }
+        char * id_end = strchr(id, ',');
+        char id_content[50];
+        id += 7;
+        id_end -= 1;
+        if (id_end-id >= 50) {
+            fprintf(stderr, "id has more than 50 characters\n");
+            return EXIT_FAILURE;
+        }
+        strncpy(id_content, id, id_end - id);
+        id_content[id_end - id] = '\0';
+        // printf("The id is: [%s]\n", id_content);
+
+        char * name_end = strchr(name, ',');
+        char name_content[50];
+        name += 9;
+        name_end -= 1;
+        if (name_end-name >= 50) {
+            fprintf(stderr, "Name has more than 50 characters\n");
+            return EXIT_FAILURE;
+        }
+        strncpy(name_content, name, name_end - name);
+        name_content[name_end - name] = '\0';
+        // printf("The name is: [%s]\n", name_content);
+
+        int ret_v = map_insert(name_content, id_content);
+        if (ret_v == EXIT_FAILURE) {
+            fprintf(stderr, "Fail to insert the name-id pair into the map\n");
+            return EXIT_FAILURE;
+        }
+
+        id = strstr(id, "\"id\": ");
+        char * max_position = name > id ? name : id;
+        files = strchr(max_position, '\n');
+    }
+    return size*nmemb;
+}
+
 int gdi_init() {
+    map_init();
     return read_config("../config.txt");
 }
 
@@ -75,6 +127,8 @@ int get_file_list() {
     strcat(url, "%27%20in%20parents&key=");
     strcat(url, api_key);
     curl_easy_setopt(curl, CURLOPT_URL, url);
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, file_list_writefunc);
 
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
@@ -113,7 +167,6 @@ int get_file_by_id(char *id, FILE *file) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, NULL);
 
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
@@ -127,7 +180,7 @@ int get_file_by_id(char *id, FILE *file) {
     return res == CURLE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-int update_file(char *id, char* data) {
+int update_file(char *id, FILE *file) {
     CURL *curl;
     CURLcode res;
 
@@ -154,7 +207,8 @@ int update_file(char *id, char* data) {
     strcat(url, api_key);
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
+    curl_easy_setopt(curl, CURLOPT_POST, 1);
+    curl_easy_setopt(curl, CURLOPT_READDATA, file);
 
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
@@ -165,16 +219,22 @@ int update_file(char *id, char* data) {
     curl_easy_cleanup(curl);
     curl_slist_free_all(chunk);
 
+    return res == CURLE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-int main(void)
-{
-    if (gdi_init() == EXIT_FAILURE)
-        return EXIT_FAILURE;
+// int main(void)
+// {
+//     if (gdi_init() == EXIT_FAILURE)
+//         return EXIT_FAILURE;
 
-    // get_file_list();
-    FILE *file = fopen("out.txt", "w");
-    get_file_by_id("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
+//     // get_file_list();
+//     // print_map_content();
+
+//     // FILE *file = fopen("out.txt", "w");
+//     // get_file_by_id("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
+
+//     FILE *file = fopen("out.txt", "r");
+//     update_file("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
     
-    return 0;
-}
+//     return 0;
+// }
