@@ -13,8 +13,9 @@ struct item {
 };
 
 void map_init();
-char *map_find(char * key);
-int map_insert(char *key, char *value);
+int map_find(const char * key, char *value);
+int map_insert(const char *key, const char *value);
+int map_exists(const char* key);
 
 void print_map_content();
 

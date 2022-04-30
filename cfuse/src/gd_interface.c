@@ -101,7 +101,7 @@ static size_t file_list_writefunc(void *data_in, size_t size, size_t nmemb, void
 
 int gdi_init() {
     map_init();
-    return read_config("../config.txt");
+    return read_config("cfuse/config.txt");
 }
 
 int get_file_list() {
@@ -230,11 +230,11 @@ int update_file(char *id, FILE *file) {
 //     // get_file_list();
 //     // print_map_content();
 
-//     // FILE *file = fopen("out.txt", "w");
-//     // get_file_by_id("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
+//     FILE *file = fopen("out.txt", "w");
+//     get_file_by_id("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
 
-//     FILE *file = fopen("out.txt", "r");
-//     update_file("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
+//     // FILE *file = fopen("out.txt", "r");
+//     // update_file("16X-Bc4N8Gv2Z_PzArFbdEpDTch3MkPZR", file);
     
 //     return 0;
 // }
