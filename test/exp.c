@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     ind = argv[1][0] - '0';
 
     FILE* f = fopen("cfuse_result.txt", "a");
-    fprintf(f, " size \t write \t read\n");
+    // fprintf(f, " size \t write \t read\n");
     // for (int ind = 0; ind < NUM_SIZES; ++ind) {
     fprintf(f, "%6s\t", size_string[ind]);
     fflush(f);
