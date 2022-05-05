@@ -6,6 +6,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+
+// FILE* log_fd;
 
 int gdi_init();
 

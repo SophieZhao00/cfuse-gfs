@@ -1,3 +1,11 @@
-config.txt
-
 .vscode/
+
+config.txt
+log.txt
+file_list_cache.txt
+cache/
+mount_point/
+cfuse_bin
+
+exp
+main
